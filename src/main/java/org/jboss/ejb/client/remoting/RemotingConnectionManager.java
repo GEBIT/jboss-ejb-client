@@ -31,6 +31,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map.Entry;
+import java.util.WeakHashMap;
 
 /**
  * A {@link RemotingConnectionManager} can be used to obtain remoting {@link Connection} by passing it the connection configurations.
@@ -45,7 +47,7 @@ class RemotingConnectionManager {
 
     private final ConnectionPool connectionPool = ConnectionPool.INSTANCE;
 
-    private final List<Connection> managedConnections = Collections.synchronizedList(new ArrayList<Connection>());
+    private final WeakHashMap<Connection, Boolean> managedConnections = new WeakHashMap<Connection, Boolean>();
 
     Connection getConnection(final Endpoint endpoint, final String host, final int port, final EJBClientConfiguration.CommonConnectionCreationConfiguration connectionConfiguration) throws IOException {
         final Connection connection = this.connectionPool.getConnection(endpoint, host, port, connectionConfiguration);
@@ -60,7 +62,7 @@ class RemotingConnectionManager {
      */
     void safeClose() {
         synchronized (managedConnections) {
-            for (final Connection connection : this.managedConnections) {
+            for (final Connection connection : this.managedConnections.keySet()) {
                 try {
                     connection.close();
                 } catch (Throwable t) {
@@ -76,7 +78,7 @@ class RemotingConnectionManager {
      */
     void closeAsync() {
         synchronized (managedConnections) {
-            for (final Connection connection : this.managedConnections) {
+            for (final Connection connection : this.managedConnections.keySet()) {
                 connection.closeAsync();
             }
         }
@@ -88,13 +90,15 @@ class RemotingConnectionManager {
      */
     void close() throws IOException {
         synchronized (managedConnections) {
-            for (final Connection connection : this.managedConnections) {
+            for (final Connection connection : this.managedConnections.keySet()) {
                 connection.close();
             }
         }
     }
 
     private void trackConnection(final Connection connection) {
-        this.managedConnections.add(connection);
+        synchronized(managedConnections) {
+            this.managedConnections.put(connection, true);
+        }
     }
 }

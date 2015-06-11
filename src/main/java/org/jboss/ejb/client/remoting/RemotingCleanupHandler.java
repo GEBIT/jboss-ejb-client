@@ -24,7 +24,6 @@ package org.jboss.ejb.client.remoting;
 
 import org.jboss.ejb.client.EJBClientContext;
 import org.jboss.ejb.client.EJBClientContextListener;
-import org.jboss.ejb.client.EJBReceiver;
 import org.jboss.ejb.client.EJBReceiverContext;
 import org.jboss.logging.Logger;
 import org.jboss.remoting3.Connection;
@@ -33,6 +32,8 @@ import org.jboss.remoting3.Endpoint;
 import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map.Entry;
+import java.util.WeakHashMap;
 
 /**
  * A {@link EJBClientContextListener} which closes all remoting endpoints and connections registered with it,
@@ -45,7 +46,7 @@ class RemotingCleanupHandler implements EJBClientContextListener {
 
     private static final Logger logger = Logger.getLogger(RemotingCleanupHandler.class);
 
-    private final List<Connection> connections = new ArrayList<Connection>();
+    private final WeakHashMap<Connection, Boolean> connections = new WeakHashMap<Connection, Boolean>();
     private final List<Endpoint> endpoints = new ArrayList<Endpoint>();
 
     @Override
@@ -74,12 +75,12 @@ class RemotingCleanupHandler implements EJBClientContextListener {
         if (connection == null) {
             return;
         }
-        this.connections.add(connection);
+        this.connections.put(connection, true);
     }
 
     void closeAll() {
         synchronized (this.connections) {
-            for (final Connection connection : connections) {
+            for (final Connection connection : connections.keySet()) {
                 safeClose(connection);
             }
         }
